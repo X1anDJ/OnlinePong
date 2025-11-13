@@ -1,8 +1,8 @@
 # Deployment & Local Testing Steps
 
 ## 1. Install dependencies and build
-cd infra
 ```
+cd infra
 npm i -D @types/node
 npm run build
 ```
@@ -15,7 +15,7 @@ npx cdk deploy PongApiStack
 ```
 ###  These commands will output 2 URLs. Add them to config.js
 
-# sample config.js:
+## sample config.js:
 ```
 window.ENV = {
   HTTP_API_BASE: "https://1ql4j1jbpa.execute-api.us-east-1.amazonaws.com",
@@ -27,9 +27,9 @@ window.ENV = {
 npm run build
 npx cdk deploy PongFrontendStack
 ```
-## 4. Test the frontend locally
+# Test the frontend locally
 ```
 python3 -m http.server 5173
 ```
-# Visit:
+### Visit:
 #### http://localhost:5173
