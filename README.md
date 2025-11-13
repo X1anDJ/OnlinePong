@@ -1,4 +1,4 @@
-```
+
 # Deployment & Local Testing Steps
 
 ## 1. Install dependencies and build
@@ -28,4 +28,3 @@ python3 -m http.server 5173
 
 # Visit:
 # http://localhost:5173
-```
