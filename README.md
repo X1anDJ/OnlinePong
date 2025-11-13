@@ -1,14 +1,19 @@
-# Welcome to your CDK TypeScript project
+build:
 
-This is a blank project for CDK development with TypeScript.
+cd infra
+npm i -D @types/node
+npm run build
+npx cdk bootstrap
+npx cdk deploy PongDataStack
+npx cdk deploy PongApiStack
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+then it will return 2 url. Put it in 
 
-## Useful commands
+npm run build
+npx cdk deploy PongFrontendStack
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+
+
+test it locally:
+python3 -m http.server 5173
+
