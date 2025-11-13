@@ -27,6 +27,10 @@ window.ENV = {
 npm run build
 npx cdk deploy PongFrontendStack
 ```
+It will output a url for the frontend client.
+Then use two tabs to test the game clients on 
+#### https://d2kzfoxg0zjark.cloudfront.net  
+
 # Test the frontend locally
 ```
 python3 -m http.server 5173
