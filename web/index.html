@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Online Pong</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+      body { font-family: ui-sans-serif, system-ui; margin: 20px; }
+      .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+      button { padding:8px 12px; cursor:pointer; }
+      input { padding:8px; }
+      #log { white-space:pre-wrap; background:#f6f6f6; padding:8px; border-radius:6px; height:90px; overflow:auto; }
+      #canvas { border:1px solid #ccc; background:#fff; display:block; }
+      .hidden { display:none; }
+      table { border-collapse: collapse; }
+      th, td { padding:6px 10px; border-bottom:1px solid #eee; text-align:left; }
+    </style>
+    <!-- prevent favicon 403 noise -->
+    <link rel="icon" href="data:,">
+  </head>
+  <body>
+    <h1>Online Pong (MVP)</h1>
+
+    <div id="auth">
+      <div class="row">
+        <input id="username" placeholder="username (optional for guest)"/>
+        <button id="guestBtn">Continue as Guest</button>
+      </div>
+      <div style="margin-top:8px;" class="row">
+        <input id="suUser" placeholder="signup username"/>
+        <input id="suPass" type="password" placeholder="signup password"/>
+        <button id="signupBtn">Sign Up</button>
+      </div>
+      <div style="margin-top:8px;" class="row">
+        <input id="liUser" placeholder="login username"/>
+        <input id="liPass" type="password" placeholder="login password"/>
+        <button id="loginBtn">Login</button>
+      </div>
+    </div>
+
+    <div id="menu" class="hidden" style="margin-top:16px;">
+      <div class="row">
+        <button id="startBtn">Start Game</button>
+        <button id="lbBtn">Leaderboard</button>
+        <button id="rankBtn">My Rank</button>
+        <span id="status"></span>
+      </div>
+      <div id="lb" class="hidden" style="margin-top:12px;">
+        <h3>Leaderboard (Top 20)</h3>
+        <table id="lbTable"><thead><tr><th>Username</th><th>Tier</th><th>Score</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div id="game" class="hidden" style="margin-top:16px;">
+      <canvas id="canvas" width="640" height="360"></canvas>
+      <div class="row" style="margin-top:8px;">
+        <button id="playAgainBtn" class="hidden">Play Again</button>
+        <button id="exitBtn" class="hidden">Exit</button>
+        <span>Controls: Arrow Up/Down (right paddle)</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div><strong>Log</strong></div>
+      <div id="log"></div>
+    </div>
+
+    <!-- 1) Inline config FIRST -->
+    <script>
+      // If your REST API uses a stage (e.g. "prod"), include it in HTTP_API_BASE below.
+      // Example for REST + stage: "https://...execute-api.us-east-1.amazonaws.com/prod"
+      // Example for HTTP API ($default stage): "https://...execute-api.us-east-1.amazonaws.com"
+      window.ENV = {
+        HTTP_API_BASE: "https://1ql4j1jbpa.execute-api.us-east-1.amazonaws.com", // add "/prod" if needed
+        WS_URL:        "wss://nae7wbnlz2.execute-api.us-east-1.amazonaws.com/prod"
+      };
+    </script>
+
+    <!-- 2) App code AFTER config -->
+    <script src="./app.js"></script>
+  </body>
+</html>
