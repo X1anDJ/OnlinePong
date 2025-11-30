@@ -4,6 +4,7 @@ import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as path from 'path';
@@ -13,12 +14,12 @@ export class ApiStack extends cdk.Stack {
   public readonly wsApi: apigwv2.WebSocketApi;
 
   constructor(scope: Construct, id: string, props: {
-    tables: { players: dynamodb.Table; matches: dynamodb.Table; connections: dynamodb.Table; queue: dynamodb.Table; },
+    tables: { players: dynamodb.Table; matches: dynamodb.Table; connections: dynamodb.Table; queue: dynamodb.Table; matchHistory: dynamodb.Table;},
     sqs: { results: sqs.Queue }
   } & cdk.StackProps) {
     super(scope, id, props);
 
-    const { players, matches, connections, queue } = props.tables;
+    const { players, matches, connections, queue, matchHistory } = props.tables;
     const { results } = props.sqs;
 
     const mkPy = (name: string, file: string, env: Record<string, string> = {}) =>
@@ -43,7 +44,13 @@ export class ApiStack extends cdk.Stack {
     const mmFn   = mkPy('MatchmakingFn', 'matchmaking.py');
     const lbFn   = mkPy('LeaderboardFn', 'leaderboard.py');
     const rpFn   = mkPy('ResultProcessorFn', 'result_processor.py');
-
+    const matchHistoryWriter = mkPy("MatchHistoryWriterFn", "match_history_writer.py", {
+      MATCH_HISTORY_TABLE: matchHistory.tableName,
+    });
+    const historyFn = mkPy('HistoryFn', 'history.py', {
+      MATCH_HISTORY_TABLE: matchHistory.tableName,
+    });
+    
     players.grantReadWriteData(authFn);
     players.grantReadWriteData(lbFn);
     matches.grantReadWriteData(mmFn);
@@ -53,6 +60,11 @@ export class ApiStack extends cdk.Stack {
     results.grantConsumeMessages(rpFn);
     players.grantReadWriteData(rpFn);
     matches.grantReadWriteData(rpFn);
+    results.grantConsumeMessages(matchHistoryWriter);
+    matchHistoryWriter.addEventSource(new SqsEventSource(results));
+    matchHistory.grantReadWriteData(matchHistoryWriter);
+    matchHistory.grantReadWriteData(historyFn);
+
 
     // WebSocket Lambdas
     const wsConnectFn = mkPy('WsConnectFn', 'ws_connect.py');
@@ -100,6 +112,11 @@ export class ApiStack extends cdk.Stack {
       path: '/rank',
       methods: [apigwv2.HttpMethod.GET],
       integration: new integrations.HttpLambdaIntegration('RankInt', lbFn)
+    });
+    this.httpApi.addRoutes({
+      path: '/history',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration('HistoryInt', historyFn)
     });
 
     new cdk.CfnOutput(this, 'HttpApiUrl', { value: this.httpApi.apiEndpoint });

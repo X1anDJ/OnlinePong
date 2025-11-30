@@ -30,6 +30,8 @@ let pollTimer = null;
 const statusSpan = $('status');
 const lbTable = $('lbTable'),
       lbTableBody = lbTable ? lbTable.querySelector('tbody') : null;
+const historyTable = $('historyTable'),
+      historyTableBody = historyTable ? historyTable.querySelector('tbody') : null;
 
 // ====== helpers: JSON fetch configs ======
 const jsonReq = (method, body) => ({
@@ -128,6 +130,32 @@ $('rankBtn').onclick = async () => {
     else log('Rank error: ' + JSON.stringify(j));
   } catch (e) {
     log('Rank exception: ' + (e && e.message ? e.message : String(e)));
+  }
+};
+
+$('historyBtn').onclick = async () => {
+  if (!userId) return log('Not logged in.');
+  try {
+    const r = await fetch(`${HTTP}/history?userId=${encodeURIComponent(userId)}`);
+    const j = await r.json().catch(() => ({ items: [] }));
+    if (!r.ok) {
+      log('History error: ' + JSON.stringify(j));
+      return;
+    }
+    if (historyTableBody) {
+      historyTableBody.innerHTML = '';
+      (j.items || []).forEach(row => {
+        const tr = document.createElement('tr');
+        const ts = row.timestamp ? new Date(row.timestamp * 1000).toLocaleString() : '';
+        const opponent = row.opponentId || '';
+        const score = `${row.scoreFor ?? 0}-${row.scoreAgainst ?? 0}`;
+        tr.innerHTML = `<td>${ts}</td><td>${opponent}</td><td>${score}</td><td>${row.result || ''}</td>`;
+        historyTableBody.appendChild(tr);
+      });
+    }
+    show('history', true);
+  } catch (e) {
+    log('History exception: ' + (e && e.message ? e.message : String(e)));
   }
 };
 

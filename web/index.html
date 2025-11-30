@@ -43,11 +43,19 @@
         <button id="startBtn">Start Game</button>
         <button id="lbBtn">Leaderboard</button>
         <button id="rankBtn">My Rank</button>
+        <button id="historyBtn">History Match</button>
         <span id="status"></span>
       </div>
       <div id="lb" class="hidden" style="margin-top:12px;">
         <h3>Leaderboard (Top 20)</h3>
         <table id="lbTable"><thead><tr><th>Username</th><th>Tier</th><th>Score</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div id="history" class="hidden" style="margin-top:12px;">
+        <h3>Match History</h3>
+        <table id="historyTable">
+          <thead><tr><th>Played On</th><th>Opponent</th><th>Score</th><th>Result</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
 
@@ -70,9 +78,13 @@
       // If your REST API uses a stage (e.g. "prod"), include it in HTTP_API_BASE below.
       // Example for REST + stage: "https://...execute-api.us-east-1.amazonaws.com/prod"
       // Example for HTTP API ($default stage): "https://...execute-api.us-east-1.amazonaws.com"
+      // window.ENV = {
+      //   HTTP_API_BASE: "https://1ql4j1jbpa.execute-api.us-east-1.amazonaws.com", // add "/prod" if needed
+      //   WS_URL:        "wss://nae7wbnlz2.execute-api.us-east-1.amazonaws.com/prod"
+      // };
       window.ENV = {
-        HTTP_API_BASE: "https://1ql4j1jbpa.execute-api.us-east-1.amazonaws.com", // add "/prod" if needed
-        WS_URL:        "wss://nae7wbnlz2.execute-api.us-east-1.amazonaws.com/prod"
+        HTTP_API_BASE: "https://nt0nuo8o0i.execute-api.us-east-1.amazonaws.com",
+        WS_URL:        "wss://ebwv2ltaj2.execute-api.us-east-1.amazonaws.com/prod"
       };
     </script>
 

@@ -1,5 +1,4 @@
-
 window.ENV = {
-  HTTP_API_BASE: "https://1ql4j1jbpa.execute-api.us-east-1.amazonaws.com",
-  WS_URL:        "wss://nae7wbnlz2.execute-api.us-east-1.amazonaws.com/prod"
+  HTTP_API_BASE: "https://nt0nuo8o0i.execute-api.us-east-1.amazonaws.com",
+  WS_URL:        "wss://ebwv2ltaj2.execute-api.us-east-1.amazonaws.com/prod"
 };

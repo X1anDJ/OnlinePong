@@ -9,6 +9,7 @@ export class DataStack extends cdk.Stack {
     matches: dynamodb.Table;
     connections: dynamodb.Table;
     queue: dynamodb.Table;
+    matchHistory: dynamodb.Table;
   };
   public readonly sqs: { results: sqs.Queue };
 
@@ -50,12 +51,21 @@ export class DataStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY
     });
 
+    // NEW: Match History table
+    const matchHistory = new dynamodb.Table(this, 'MatchHistory', {
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY
+    });
+
+
     const results = new sqs.Queue(this, 'GameResults', {
       visibilityTimeout: cdk.Duration.seconds(30),
       retentionPeriod: cdk.Duration.days(4)
     });
 
-    this.tables = { players, matches, connections, queue };
+    this.tables = { players, matches, connections, queue, matchHistory };
     this.sqs = { results };
   }
 }
