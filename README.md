@@ -42,6 +42,7 @@ python3 -m http.server 5173
 ## Data schema
 
 - **Players** (`userId` PK)  
+  Stores account or guest records. Attributes: `username`, optional `password`, `score`, `tier`, `leaderboard` (constant `"LEADERBOARD"` so that the GSI has a fixed partition key), `createdAt`, `updatedAt`. A global secondary index `GSI_score` (`leaderboard` PK, `score` SK, includes `username`, `tier`) drives the leaderboard query.
 ```bash
 {
   "table": "Players",
@@ -65,8 +66,9 @@ python3 -m http.server 5173
   }
 }
 ```
-  Stores account or guest records. Attributes: `username`, optional `password`, `score`, `tier`, `leaderboard` (constant `"LEADERBOARD"` so that the GSI has a fixed partition key), `createdAt`, `updatedAt`. A global secondary index `GSI_score` (`leaderboard` PK, `score` SK, includes `username`, `tier`) drives the leaderboard query.
+
 - **Matches** (`matchId` PK, TTL `ttl`)  
+  Tracks the lifecycle of a head‑to‑head game. Attributes: `players` (two user ids), running `scoreA`/`scoreB`, `state` (`CREATED`, `PLAYING`, `FINISHED`), `createdAt`, `updatedAt`, and optional `finalScoreA`/`finalScoreB`. Items live for 24 hours.
 ```bash
 {
   "table": "Matches",
@@ -85,8 +87,9 @@ python3 -m http.server 5173
   }
 }
 ```
-  Tracks the lifecycle of a head‑to‑head game. Attributes: `players` (two user ids), running `scoreA`/`scoreB`, `state` (`CREATED`, `PLAYING`, `FINISHED`), `createdAt`, `updatedAt`, and optional `finalScoreA`/`finalScoreB`. Items live for 24 hours.
+
 - **Connections** (`connectionId` PK, TTL `ttl`)  
+  Keeps the mapping between an API Gateway WebSocket connection and the logical `userId`/`matchId`, so the ws_message Lambda can fan out INPUT/STATE/SCORE messages only to the participants that share the same match.
 ```bash
 {
   "table": "Connections",
@@ -100,8 +103,9 @@ python3 -m http.server 5173
   }
 }
 ```
-  Keeps the mapping between an API Gateway WebSocket connection and the logical `userId`/`matchId`, so the ws_message Lambda can fan out INPUT/STATE/SCORE messages only to the participants that share the same match.
+
 - **MatchmakingQueue** (`tier` PK, `scoreKey` SK, TTL `ttl`)  
+  Short-lived rows that represent players waiting to be paired. `scoreKey` is a zero-padded score plus user id (`00020#user-123`) that enables ordering inside the tier. Attributes: `userId`, `score`, `enqueuedAt`. Items expire after ~15 seconds so stale queue entries disappear automatically.
 ```bash
 {
   "table": "MatchmakingQueue",
@@ -116,10 +120,10 @@ python3 -m http.server 5173
     "enqueuedAt": "number"
   }
 }
-
 ```
-  Short-lived rows that represent players waiting to be paired. `scoreKey` is a zero-padded score plus user id (`00020#user-123`) that enables ordering inside the tier. Attributes: `userId`, `score`, `enqueuedAt`. Items expire after ~15 seconds so stale queue entries disappear automatically.
+
 - **MatchHistory** (`userId` PK, `timestamp` SK)  
+  Append-only log written by `match_history_writer.py` whenever a result message arrives on the SQS queue. Each item stores `matchId`, `opponentId`, `scoreFor`, `scoreAgainst`, and the derived `result`, so clients can page through their past matches without scanning the `Matches` table.
 ```bash
 {
   "table": "MatchHistory",
@@ -136,8 +140,9 @@ python3 -m http.server 5173
   }
 }
 ```
-  Append-only log written by `match_history_writer.py` whenever a result message arrives on the SQS queue. Each item stores `matchId`, `opponentId`, `scoreFor`, `scoreAgainst`, and the derived `result`, so clients can page through their past matches without scanning the `Matches` table.
+
 - **GameResults queue (SQS)**  
+  ws_message enqueues `{ matchId, players, scoreA, scoreB }` when a rally reaches 10 points. Two consumers listen to the queue: `result_processor.py` bumps player scores/tiers and updates the `Matches` record, and `match_history_writer.py` fans each result out into two `MatchHistory` rows (one per player) so the frontend can render a history table.
 ```bash
 {
   "queue": "GameResults",
@@ -153,7 +158,6 @@ python3 -m http.server 5173
   ]
 }
 ```
-  ws_message enqueues `{ matchId, players, scoreA, scoreB }` when a rally reaches 10 points. Two consumers listen to the queue: `result_processor.py` bumps player scores/tiers and updates the `Matches` record, and `match_history_writer.py` fans each result out into two `MatchHistory` rows (one per player) so the frontend can render a history table.
 
 ## API Design
 
