@@ -42,16 +42,117 @@ python3 -m http.server 5173
 ## Data schema
 
 - **Players** (`userId` PK)  
+```bash
+{
+  "table": "Players",
+  "partitionKey": "userId",
+  "attributes": {
+    "userId": "string",
+    "username": "string",
+    "password": "string (optional)",
+    "score": "number",
+    "tier": "string",
+    "leaderboard": "string (constant 'LEADERBOARD')",
+    "createdAt": "number",
+    "updatedAt": "number"
+  },
+  "indexes": {
+    "GSI_score": {
+      "partitionKey": "leaderboard",
+      "sortKey": "score",
+      "project": ["username", "tier"],
+    }
+  }
+}
+```
   Stores account or guest records. Attributes: `username`, optional `password`, `score`, `tier`, `leaderboard` (constant `"LEADERBOARD"` so that the GSI has a fixed partition key), `createdAt`, `updatedAt`. A global secondary index `GSI_score` (`leaderboard` PK, `score` SK, includes `username`, `tier`) drives the leaderboard query.
 - **Matches** (`matchId` PK, TTL `ttl`)  
+```bash
+{
+  "table": "Matches",
+  "partitionKey": "matchId",
+  "ttl": "ttl",
+  "attributes": {
+    "matchId": "string",
+    "players": ["userIdA", "userIdB"],
+    "scoreA": "number",
+    "scoreB": "number",
+    "state": "CREATED | PLAYING | FINISHED",
+    "createdAt": "number",
+    "updatedAt": "number",
+    "finalScoreA": "number (optional)",
+    "finalScoreB": "number (optional)"
+  }
+}
+```
   Tracks the lifecycle of a head‑to‑head game. Attributes: `players` (two user ids), running `scoreA`/`scoreB`, `state` (`CREATED`, `PLAYING`, `FINISHED`), `createdAt`, `updatedAt`, and optional `finalScoreA`/`finalScoreB`. Items live for 24 hours.
 - **Connections** (`connectionId` PK, TTL `ttl`)  
+```bash
+{
+  "table": "Connections",
+  "partitionKey": "connectionId",
+  "ttl": "ttl",
+  "attributes": {
+    "connectionId": "string",
+    "userId": "string",
+    "matchId": "string",
+    "createdAt": "number"
+  }
+}
+```
   Keeps the mapping between an API Gateway WebSocket connection and the logical `userId`/`matchId`, so the ws_message Lambda can fan out INPUT/STATE/SCORE messages only to the participants that share the same match.
 - **MatchmakingQueue** (`tier` PK, `scoreKey` SK, TTL `ttl`)  
+```bash
+{
+  "table": "MatchmakingQueue",
+  "partitionKey": "tier",
+  "sortKey": "scoreKey (e.g., '00020#userId')",
+  "ttl": "ttl",
+  "attributes": {
+    "tier": "string",
+    "scoreKey": "string",
+    "userId": "string",
+    "score": "number",
+    "enqueuedAt": "number"
+  }
+}
+
+```
   Short-lived rows that represent players waiting to be paired. `scoreKey` is a zero-padded score plus user id (`00020#user-123`) that enables ordering inside the tier. Attributes: `userId`, `score`, `enqueuedAt`. Items expire after ~15 seconds so stale queue entries disappear automatically.
 - **MatchHistory** (`userId` PK, `timestamp` SK)  
+```bash
+{
+  "table": "MatchHistory",
+  "partitionKey": "userId",
+  "sortKey": "timestamp",
+  "attributes": {
+    "userId": "string",
+    "timestamp": "number",
+    "matchId": "string",
+    "opponentId": "string",
+    "scoreFor": "number",
+    "scoreAgainst": "number",
+    "result": "WIN | LOSS"
+  }
+}
+```
   Append-only log written by `match_history_writer.py` whenever a result message arrives on the SQS queue. Each item stores `matchId`, `opponentId`, `scoreFor`, `scoreAgainst`, and the derived `result`, so clients can page through their past matches without scanning the `Matches` table.
 - **GameResults queue (SQS)**  
+```bash
+{
+  "queue": "GameResults",
+  "messageExample": {
+    "matchId": "string",
+    "players": ["userA", "userB"],
+    "scoreA": "number",
+    "scoreB": "number"
+  },
+  "consumers": [
+    "result_processor.py",
+    "match_history_writer.py"
+  ]
+}
+```
   ws_message enqueues `{ matchId, players, scoreA, scoreB }` when a rally reaches 10 points. Two consumers listen to the queue: `result_processor.py` bumps player scores/tiers and updates the `Matches` record, and `match_history_writer.py` fans each result out into two `MatchHistory` rows (one per player) so the frontend can render a history table.
 
 ## API Design
@@ -76,10 +177,58 @@ All HTTP responses use `application/json` and standard `4xx/5xx` codes for valid
 
 Clients connect once per match and send small JSON envelopes. The `ws_message` Lambda fans out messages to any connection stored with the same `matchId`.
 
-- `JOIN`: `{ "type":"JOIN", "userId":"...", "matchId":"..." }` registers the connection with TTL ~15 min, enabling lookups later.
-- `INPUT`: `{ "type":"INPUT", "userId":"...", "matchId":"...", "axis":"y", "value":-1|0|1, "ts":123 }`. Host relays paddle input to the opponent.
-- `STATE`: Host authoritative state `{ "type":"STATE", "ball":{x,y}, "paddleA":{y}, "paddleB":{y}, "scoreA":n, "scoreB":m }`. Server broadcasts to both sides.
-- `SCORE`: `{ "type":"SCORE", "userId":"...", "matchId":"...", "scorer":"A"|"B" }`. The Lambda increments the running score inside `Matches`, emits `SCORE_UPDATE`, and when either side reaches 10 points it emits `GAME_OVER` and enqueues the result to SQS.
-- `PLAY_AGAIN`: `{ "type":"PLAY_AGAIN", "userId":"...", "matchId":"...", "agree":true|false }`. Broadcast back as `REPLAY_STATUS` so the UI can coordinate rematches/re-queuing.
+- `JOIN`
+```bash
+{
+  "type": "JOIN",
+  "userId": "...",
+  "matchId": "..."
+}
+```
+`{ "type":"JOIN", "userId":"...", "matchId":"..." }` registers the connection with TTL ~15 min, enabling lookups later.
+- `INPUT`
+```bash
+{
+  "type": "INPUT",
+  "userId": "...",
+  "matchId": "...",
+  "axis": "y",
+  "value": -1,
+  "ts": 123
+}
+```
+`{ "type":"INPUT", "userId":"...", "matchId":"...", "axis":"y", "value":-1|0|1, "ts":123 }`. Host relays paddle input to the opponent.
+- `STATE`
+```bash
+{
+  "type": "STATE",
+  "ball": { "x": 0, "y": 0 },
+  "paddleA": { "y": 0.5 },
+  "paddleB": { "y": -0.1 },
+  "scoreA": 3,
+  "scoreB": 2
+}
+```
+Host authoritative state `{ "type":"STATE", "ball":{x,y}, "paddleA":{y}, "paddleB":{y}, "scoreA":n, "scoreB":m }`. Server broadcasts to both sides.
+- `SCORE`
+```bash
+{
+  "type": "SCORE",
+  "userId": "...",
+  "matchId": "...",
+  "scorer": "A" 
+}
+```
+`{ "type":"SCORE", "userId":"...", "matchId":"...", "scorer":"A"|"B" }`. The Lambda increments the running score inside `Matches`, emits `SCORE_UPDATE`, and when either side reaches 10 points it emits `GAME_OVER` and enqueues the result to SQS.
+- `PLAY_AGAIN`
+```bash
+{
+  "type": "PLAY_AGAIN",
+  "userId": "...",
+  "matchId": "...",
+  "agree": true
+}
+```
+`{ "type":"PLAY_AGAIN", "userId":"...", "matchId":"...", "agree":true|false }`. Broadcast back as `REPLAY_STATUS` so the UI can coordinate rematches/re-queuing.
 
 These messages are the only contract between the browser game loop and the backend; adding new game events simply means defining another `type` and handling it in `ws_message.py`.
